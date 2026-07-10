@@ -1,0 +1,17 @@
+{
+  "name": "photobooth-signaling-server",
+  "version": "1.0.0",
+  "description": "Signaling server for the online photobooth. Never touches video or photos — only room membership and WebRTC handshake messages.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
