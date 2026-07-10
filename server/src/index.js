@@ -93,6 +93,15 @@ io.on("connection", (socket) => {
     socket.to(code).emit("peer-position", { socketId: socket.id, position });
   });
 
+  // ---- Capture start broadcast ----
+  // Initiator sends layout + shotCount; server broadcasts to all in room
+  // including initiator so everyone runs identical local capture sequence.
+  socket.on("capture-start", ({ layout, shotCount }) => {
+    const code = socket.data.roomCode;
+    if (!code) return;
+    io.to(code).emit("capture-start", { layout, shotCount, initiatorId: socket.id });
+  });
+
   socket.on("disconnect", () => {
     const code = socket.data.roomCode;
     if (!code) return;
