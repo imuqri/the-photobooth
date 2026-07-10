@@ -4,6 +4,10 @@ All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/), versioning follows [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Added
+- Synced photo capture: all participants now see countdown, flash, and receive the final photo locally (server only broadcasts a tiny "start capture" signal)
+- CaptureResultModal with Download button for everyone; initiator also gets Retake with confirmation warning
+- New `useCapture` hook encapsulating decentralized capture logic (countdown, flash, compositing)
 
 ## [1.0.0] — initial scaffold
 ### Added
