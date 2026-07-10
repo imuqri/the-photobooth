@@ -29,3 +29,4 @@ or stored on the server.
 - **Rooms** live in server memory only (`server/src/rooms.js`), expire
   automatically after an hour of inactivity, and disappear the moment
   the last participant leaves.
+
