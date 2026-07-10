@@ -83,7 +83,6 @@ export function useCapture({
     if (capturing || activeRef.current || !selfId) return;
     const socket = socketRef.current;
     if (!socket) return;
-    activeRef.current = true;
     setIsInitiator(true);
     socket.emit("capture-start", { layout: layoutId, shotCount: layout.shotCount });
   }, [capturing, layoutId, layout.shotCount, selfId, socketRef]);
@@ -111,7 +110,7 @@ export function useCapture({
     countdown,
     flashKey,
     capturing,
-    resultImage,
+    imageDataUrl: resultImage,
     isInitiator,
     startCapture,
     handleDownload,
