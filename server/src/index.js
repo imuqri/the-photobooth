@@ -102,6 +102,14 @@ io.on("connection", (socket) => {
     io.to(code).emit("capture-start", { layout, shotCount, initiatorId: socket.id });
   });
 
+  // ---- Capture retake broadcast ----
+  // Initiator confirms retake; server broadcasts to all in room to close result modals.
+  socket.on("capture-retake", () => {
+    const code = socket.data.roomCode;
+    if (!code) return;
+    io.to(code).emit("capture-retake", { initiatorId: socket.id });
+  });
+
   socket.on("disconnect", () => {
     const code = socket.data.roomCode;
     if (!code) return;

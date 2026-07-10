@@ -4,6 +4,7 @@ import { LAYOUTS } from "../utils/layouts.js";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const CAPTURE_SCALE = 2;
+const SHOT_DELAY_MS = 1500; // delay between shots
 
 export function useCapture({
   socketRef,
@@ -18,6 +19,7 @@ export function useCapture({
   const [capturing, setCapturing] = useState(false);
   const [resultImage, setResultImage] = useState(null);
   const [isInitiator, setIsInitiator] = useState(false);
+  const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
   const activeRef = useRef(false);
 
   const layout = LAYOUTS[layoutId] || LAYOUTS.strip3;
@@ -34,9 +36,18 @@ export function useCapture({
       runCaptureSequence(payloadLayout || layoutId, shotCount || layout.shotCount);
     }
 
+    function onCaptureRetake() {
+      setResultImage(null);
+      setIsInitiator(false);
+      activeRef.current = false;
+      setShowRetakeConfirm(false);
+    }
+
     socket.on("capture-start", onCaptureStart);
+    socket.on("capture-retake", onCaptureRetake);
     return () => {
       socket.off("capture-start", onCaptureStart);
+      socket.off("capture-retake", onCaptureRetake);
     };
   }, [socketRef, selfId, layoutId, layout.shotCount]);
 
@@ -67,7 +78,9 @@ export function useCapture({
         drawStage(ctx, captureW, captureH, { backdrop: { type: "gradient" }, participants });
         shots.push(shotCanvas);
 
-        await sleep(500);
+        if (i < shotCount - 1) {
+          await sleep(SHOT_DELAY_MS);
+        }
       }
 
       const final = assembleFinalImage(currentLayout, shots, { label: code });
@@ -101,9 +114,23 @@ export function useCapture({
     img.src = resultImage;
   }, [resultImage, code]);
 
-  const handleRetake = useCallback(() => {
+  const requestRetake = useCallback(() => {
+    setShowRetakeConfirm(true);
+  }, []);
+
+  const confirmRetake = useCallback(() => {
+    const socket = socketRef.current;
+    if (socket) {
+      socket.emit("capture-retake");
+    }
     setResultImage(null);
     setIsInitiator(false);
+    activeRef.current = false;
+    setShowRetakeConfirm(false);
+  }, [socketRef]);
+
+  const cancelRetake = useCallback(() => {
+    setShowRetakeConfirm(false);
   }, []);
 
   return {
@@ -112,8 +139,11 @@ export function useCapture({
     capturing,
     imageDataUrl: resultImage,
     isInitiator,
+    showRetakeConfirm,
     startCapture,
     handleDownload,
-    handleRetake,
+    requestRetake,
+    confirmRetake,
+    cancelRetake,
   };
 }

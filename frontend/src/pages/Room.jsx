@@ -41,9 +41,12 @@ const { remoteStreams, connectToPeer } = useWebRTC(socketRef, localStream);
     capturing,
     imageDataUrl,
     isInitiator,
+    showRetakeConfirm,
     startCapture,
     handleDownload,
-    handleRetake,
+    requestRetake,
+    confirmRetake,
+    cancelRetake,
   } = useCapture({
     socketRef,
     selfId,
@@ -330,9 +333,11 @@ const { remoteStreams, connectToPeer } = useWebRTC(socketRef, localStream);
       <CaptureResultModal
         imageDataUrl={imageDataUrl}
         isInitiator={isInitiator}
+        showRetakeConfirm={showRetakeConfirm}
         onDownload={handleDownload}
-        onRetake={handleRetake}
-        onClose={handleRetake}
+        onRequestRetake={requestRetake}
+        onConfirmRetake={confirmRetake}
+        onCancelRetake={cancelRetake}
       />
     </div>
   );
