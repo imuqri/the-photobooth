@@ -2,14 +2,13 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSocket } from "../hooks/useSocket.js";
 import { useWebRTC } from "../hooks/useWebRTC.js";
+import { useCapture } from "../hooks/useCapture.js";
 import ParticipantFeed from "../components/ParticipantFeed.jsx";
 import SessionCode from "../components/SessionCode.jsx";
 import CaptureButton from "../components/CaptureButton.jsx";
+import CaptureResultModal from "../components/CaptureResultModal.jsx";
 import { LAYOUTS } from "../utils/layouts.js";
-import { drawStage, assembleFinalImage, downloadCanvas } from "../utils/compositor.js";
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const CAPTURE_SCALE = 2; // render captures at 2x the on-screen stage for a sharp export
+import { drawStage } from "../utils/compositor.js";
 
 export default function Room() {
   const { code } = useParams();
@@ -23,23 +22,41 @@ export default function Room() {
   const [layoutId, setLayoutId] = useState("strip3");
   const [locked, setLocked] = useState(false);
   const [isHost, setIsHost] = useState(false);
-  const [peerIds, setPeerIds] = useState([]); // remote participant socketIds
-  const [countdown, setCountdown] = useState(null);
-  const [flashKey, setFlashKey] = useState(0);
-  const [capturing, setCapturing] = useState(false);
-  const [resultCanvas, setResultCanvas] = useState(null);
+  const [peerIds, setPeerIds] = useState([]);
   const [scale, setScale] = useState(1);
 
   const stageCanvasRef = useRef(null);
-  const canvasMapRef = useRef(new Map()); // socketId -> segmented <canvas>
-  const positionsRef = useRef(new Map()); // socketId -> { x, y, scale }
+  const canvasMapRef = useRef(new Map());
+  const positionsRef = useRef(new Map());
   const draggingRef = useRef(null);
   const lastEmitRef = useRef(0);
   const rafRef = useRef(null);
 
-  const { remoteStreams, connectToPeer } = useWebRTC(socketRef, localStream);
+const { remoteStreams, connectToPeer } = useWebRTC(socketRef, localStream);
 
-  // ---- 1. Get camera access. Fresh every visit — the browser handles revocation on tab close. ----
+  // ---- Capture hook ----
+  const {
+    countdown,
+    flashKey,
+    capturing,
+    imageDataUrl,
+    isInitiator,
+    showRetakeConfirm,
+    startCapture,
+    handleDownload,
+    requestRetake,
+    confirmRetake,
+    cancelRetake,
+  } = useCapture({
+    socketRef,
+    selfId,
+    code,
+    layoutId,
+    canvasMapRef,
+    positionsRef,
+  });
+
+  // ---- 1. Get camera access ----
   useEffect(() => {
     let activeStream;
     navigator.mediaDevices
@@ -221,41 +238,6 @@ export default function Room() {
     socketRef.current?.emit("position-update", next);
   }
 
-  // ---- 7. Capture flow ----
-  async function handleCapture() {
-    if (capturing) return;
-    setCapturing(true);
-    const shots = [];
-    const captureW = Math.round(layout.slots[0].w * CAPTURE_SCALE);
-    const captureH = Math.round(captureW / layout.slotAspect);
-
-    for (let i = 0; i < layout.shotCount; i++) {
-      for (const n of [3, 2, 1]) {
-        setCountdown(n);
-        await sleep(650);
-      }
-      setCountdown(null);
-      setFlashKey((k) => k + 1);
-
-      const shotCanvas = document.createElement("canvas");
-      shotCanvas.width = captureW;
-      shotCanvas.height = captureH;
-      const ctx = shotCanvas.getContext("2d");
-      const participants = [];
-      for (const [id, c] of canvasMapRef.current) {
-        participants.push({ canvas: c, position: positionsRef.current.get(id) });
-      }
-      drawStage(ctx, captureW, captureH, { backdrop: { type: "gradient" }, participants });
-      shots.push(shotCanvas);
-
-      await sleep(500);
-    }
-
-    const final = assembleFinalImage(layout, shots, { label: code });
-    setResultCanvas(final);
-    setCapturing(false);
-  }
-
   function toggleLock() {
     const next = !locked;
     setLocked(next);
@@ -338,7 +320,7 @@ export default function Room() {
       </div>
 
       <CaptureButton
-        onClick={handleCapture}
+        onClick={startCapture}
         disabled={capturing || !selfId}
         countdown={countdown}
         shotLabel={capturing ? "Hold still…" : `Take ${layout.shotCount} photos`}
@@ -348,40 +330,15 @@ export default function Room() {
         Leave session
       </button>
 
-      {resultCanvas && (
-        <ResultOverlay
-          canvas={resultCanvas}
-          onDownload={() => downloadCanvas(resultCanvas, `together-booth-${code}.png`)}
-          onRetake={() => setResultCanvas(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-function ResultOverlay({ canvas, onDownload, onRetake }) {
-  const [dataUrl] = useState(() => canvas.toDataURL("image/png"));
-  return (
-    <div className="fixed inset-0 bg-black/85 flex flex-col items-center justify-center gap-5 p-6 z-50">
-      <img src={dataUrl} alt="Your photobooth strip" className="max-h-[70vh] rounded-lg shadow-2xl" />
-      <p className="text-xs font-mono text-booth-muted text-center max-w-sm">
-        This never touched our server — it exists only in your browser. Download it now; closing this
-        won't save a copy anywhere.
-      </p>
-      <div className="flex gap-3">
-        <button
-          onClick={onDownload}
-          className="px-6 py-3 rounded-xl bg-booth-shutter text-booth-paper font-display text-lg tracking-wide"
-        >
-          Download
-        </button>
-        <button
-          onClick={onRetake}
-          className="px-6 py-3 rounded-xl bg-booth-surface2 border border-white/15 text-booth-paper font-display text-lg tracking-wide"
-        >
-          Retake
-        </button>
-      </div>
+      <CaptureResultModal
+        imageDataUrl={imageDataUrl}
+        isInitiator={isInitiator}
+        showRetakeConfirm={showRetakeConfirm}
+        onDownload={handleDownload}
+        onRequestRetake={requestRetake}
+        onConfirmRetake={confirmRetake}
+        onCancelRetake={cancelRetake}
+      />
     </div>
   );
 }
