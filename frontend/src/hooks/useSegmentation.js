@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { SelfieSegmentation } from "@mediapipe/selfie_segmentation";
 
 /**
  * Runs live background segmentation on `videoRef` and draws the
@@ -23,6 +22,12 @@ export function useSegmentation(videoRef, outputCanvasRef, enabled = true) {
     if (!video || !canvas) return;
 
     const ctx = canvas.getContext("2d");
+
+    const SelfieSegmentation = window.SelfieSegmentation;
+    if (!SelfieSegmentation) {
+      console.error("MediaPipe SelfieSegmentation not loaded");
+      return;
+    }
 
     const segmenter = new SelfieSegmentation({
       locateFile: (file) =>
