@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Simultaneous join protection**: Added random jitter (0-100ms) before initiating connections to prevent exact simultaneous initiation.
   - **Error path cleanup**: Ensured `connectingRef` cleared in all catch blocks to prevent stuck connection attempts.
 - **Position sync for new joiners**: Fixed 3rd+ user seeing participants at stale/incorrect positions. Server now emits `peer-position` for all existing participants directly to the new joiner during join, so they render at correct positions immediately.
+- **Position sync race condition**: Fixed new joiners missing server-emitted positions due to listener setup timing. Client now registers `peer-position` listener in a `useEffect` with only `[socketRef]` dependency (runs on socket connect, before join), ensuring it's ready before server emits positions during join.
 
 ### Changed
 - `frontend/src/pages/Room.jsx` — set `selfId` before join emit, pass explicit `selfId` to `connectToPeer`
