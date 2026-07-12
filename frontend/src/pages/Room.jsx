@@ -92,7 +92,12 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
         setJoinError(readableJoinError(res.error));
         return;
       }
-      console.log("[JOIN] Callback received:", { selfId: res.selfId, room: res.room, positions: res.positions });
+      console.log("[JOIN] Callback received:", { 
+        selfId: res.selfId, 
+        roomParticipants: res.room?.participants?.map(p => ({ socketId: p.socketId, position: p.position })),
+        positionsKeys: res.positions ? Object.keys(res.positions) : 'none',
+        positions: res.positions
+      });
       setSelfId(res.selfId);
       setWebRTCSelfId(res.selfId);
       setLayoutId(res.room.layout);
