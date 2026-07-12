@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import LayoutPicker from "../components/LayoutPicker.jsx";
 
 export default function Landing() {
   const navigate = useNavigate();
