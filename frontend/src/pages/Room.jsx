@@ -86,9 +86,9 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
     const socket = socketRef.current;
     if (!socket || !connected || !localStream) return;
 
-    // Set selfId BEFORE join emit so tiebreaker works immediately
+// Set selfId BEFORE join emit so tiebreaker works immediately
     let myId = null;
-socket.emit("join-room", { code, userId }, (res) => {
+    socket.emit("join-room", { code, userId }, (res) => {
       if (res?.error) {
         setJoinError(readableJoinError(res.error));
         return;
@@ -102,19 +102,19 @@ socket.emit("join-room", { code, userId }, (res) => {
       myId = res.selfId;
       const others = res.room.participants.filter((p) => p.socketId !== res.selfId);
       setPeerIds(others.map((p) => p.socketId));
+      
+      // Apply positions from join callback (includes saved positions from lastKnownPositions)
       for (const p of others) {
         positionsRef.current.set(p.socketId, p.position);
         connectToPeer(p.socketId, { selfId: myId, isInitiator: true });
       }
-
-      // Request fresh positions from server as backup
-      socket.emit("request-positions", null, ({ positions }) => {
-        if (positions) {
-          for (const [pid, pos] of Object.entries(positions)) {
-            positionsRef.current.set(pid, pos);
-          }
+      
+      // Also apply any additional positions from the callback (backup from server)
+      if (res.positions) {
+        for (const [pid, pos] of Object.entries(res.positions)) {
+          positionsRef.current.set(pid, pos);
         }
-      });
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, localStream, code]);

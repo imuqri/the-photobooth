@@ -118,23 +118,19 @@ io.on("connection", (socket) => {
       }
     }
 
-    // Send current positions of all existing participants to the new user
-    // so they render at correct positions immediately
+    // Include current positions of all existing participants in the callback response
+    // so the new user can render them at correct positions immediately
     const room = getRoom(code);
+    const positions = {};
     if (room) {
-      console.log("[POSITION] Sending positions to new user", socket.id, "in room", code);
       for (const [pid, participant] of room.participants) {
         if (pid !== socket.id) {
-          console.log("[POSITION] Emitting peer-position to", socket.id, "for", pid, "position:", participant.position);
-          socket.emit("peer-position", {
-            socketId: pid,
-            position: participant.position,
-          });
+          positions[pid] = participant.position;
         }
       }
     }
 
-    callback?.({ room: roomSummary(result.room), selfId: socket.id });
+    callback?.({ room: roomSummary(result.room), selfId: socket.id, positions });
   });
 
   // ---- Lock / unlock (host only) ----
