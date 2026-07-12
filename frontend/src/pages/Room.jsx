@@ -122,6 +122,7 @@ socket.emit("join-room", { code, userId }, (res) => {
   // ---- 3a. Position sync (registered via registerHandler for reconnection support) ----
   useEffect(() => {
     return registerHandler("peer-position", ({ socketId, position }) => {
+      console.log("[POSITION] Received peer-position:", socketId, position);
       positionsRef.current.set(socketId, position);
     });
   }, [registerHandler]);
@@ -231,6 +232,7 @@ socket.emit("join-room", { code, userId }, (res) => {
     if (!b || x < b.left || x > b.right || y < b.top || y > b.bottom) return;
     draggingRef.current = true;
     e.target.setPointerCapture(e.pointerId);
+    console.log("[POSITION] Drag started for:", selfId, "at", x, y);
   }
 
   function onPointerMove(e) {
@@ -246,6 +248,7 @@ socket.emit("join-room", { code, userId }, (res) => {
     const now = performance.now();
     if (now - lastEmitRef.current > 50) {
       lastEmitRef.current = now;
+      console.log("[POSITION] Emitting position-update:", next);
       socketRef.current?.emit("position-update", next);
     }
   }
@@ -254,7 +257,10 @@ socket.emit("join-room", { code, userId }, (res) => {
     if (!draggingRef.current) return;
     draggingRef.current = false;
     const pos = positionsRef.current.get(selfId);
-    if (pos) socketRef.current?.emit("position-update", pos);
+    if (pos) {
+      console.log("[POSITION] Emitting position-update:", pos);
+      socketRef.current?.emit("position-update", pos);
+    }
   }
 
   function onScaleChange(e) {
@@ -263,6 +269,7 @@ socket.emit("join-room", { code, userId }, (res) => {
     const prev = positionsRef.current.get(selfId) || { x: 0.5, y: 0.5 };
     const next = { ...prev, scale: value };
     positionsRef.current.set(selfId, next);
+    console.log("[POSITION] Emitting position-update (scale):", next);
     socketRef.current?.emit("position-update", next);
   }
 

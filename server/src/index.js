@@ -122,8 +122,10 @@ io.on("connection", (socket) => {
     // so they render at correct positions immediately
     const room = getRoom(code);
     if (room) {
+      console.log("[POSITION] Sending positions to new user", socket.id, "in room", code);
       for (const [pid, participant] of room.participants) {
         if (pid !== socket.id) {
+          console.log("[POSITION] Emitting peer-position to", socket.id, "for", pid, "position:", participant.position);
           socket.emit("peer-position", {
             socketId: pid,
             position: participant.position,
@@ -156,7 +158,11 @@ io.on("connection", (socket) => {
   // ---- Live framing position sync (drag-to-fit) ----
   socket.on("position-update", (position) => {
     const code = socket.data.roomCode;
-    if (!code) return;
+    if (!code) {
+      console.log("[POSITION] No roomCode for socket", socket.id);
+      return;
+    }
+    console.log("[POSITION] Update from", socket.id, "in room", code, "position:", position);
     updatePosition(code, socket.id, position);
     socket.to(code).emit("peer-position", { socketId: socket.id, position });
   });
