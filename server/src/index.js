@@ -58,6 +58,13 @@ app.get("/", (_req, res) => {
   `);
 });
 
+// Create room via REST (used by Landing page to avoid socket issues during navigation)
+app.post("/api/create-room", express.json(), (req, res) => {
+  const layout = req.body?.layout === "grid4" ? "grid4" : "strip3";
+  const room = createRoom(req.ip || "unknown", layout);
+  res.json({ room: roomSummary(room) });
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: ALLOWED_ORIGINS, methods: ["GET", "POST"] },

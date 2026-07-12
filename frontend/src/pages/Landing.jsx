@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSocket } from "../hooks/useSocket.js";
-import LayoutPicker from "../components/LayoutPicker.jsx";
 
 export default function Landing() {
-  const { socketRef, connected } = useSocket();
   const navigate = useNavigate();
   const [mode, setMode] = useState("choose"); // 'choose' | 'create' | 'join'
   const [layout, setLayout] = useState("strip3");
@@ -15,11 +12,30 @@ export default function Landing() {
   function createSession() {
     setBusy(true);
     setError("");
-    socketRef.current?.emit("create-room", { layout }, (res) => {
-      setBusy(false);
-      if (res?.error) return setError(readableError(res.error));
-      navigate(`/room/${res.room.code}`);
-    });
+    // Use fetch to call a REST endpoint instead of socket
+    // This avoids socket connection issues during navigation
+    fetch("/api/create-room", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ layout }),
+    })
+      .then((res) => res.json())
+      .then((res) => {
+        setBusy(false);
+        if (res?.error) return setError(readableError(res.error));
+        navigate(`/room/${res.room.code}`);
+      })
+      .catch(() => {
+        setBusy(false);
+        setError("Failed to create room. Please try again.");
+      });
+  }
+
+  function joinSession(e) {
+    e.preventDefault();
+    const code = joinCode.trim().toUpperCase();
+    if (code.length < 4) return setError("Enter the code your host shared with you.");
+    navigate(`/room/${code}`);
   }
 
   function joinSession(e) {
