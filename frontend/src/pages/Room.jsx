@@ -109,7 +109,20 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, localStream, code]);
 
-  // ---- 3. Track room membership + sync events ----
+  // ---- 3a. Position sync (runs when socket connects, BEFORE join) ----
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    function onPeerPosition({ socketId, position }) {
+      positionsRef.current.set(socketId, position);
+    }
+
+    socket.on("peer-position", onPeerPosition);
+    return () => socket.off("peer-position", onPeerPosition);
+  }, [socketRef]);
+
+  // ---- 3b. Room membership + sync events (needs selfId for host check) ----
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -122,9 +135,6 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
       canvasMapRef.current.delete(socketId);
       positionsRef.current.delete(socketId);
     }
-    function onPeerPosition({ socketId, position }) {
-      positionsRef.current.set(socketId, position);
-    }
     function onRoomLocked({ locked }) {
       setLocked(locked);
     }
@@ -134,19 +144,15 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
 
     socket.on("peer-joined", onPeerJoined);
     socket.on("peer-left", onPeerLeft);
-    socket.on("peer-position", onPeerPosition);
     socket.on("room-locked", onRoomLocked);
     socket.on("host-changed", onHostChanged);
     return () => {
       socket.off("peer-joined", onPeerJoined);
       socket.off("peer-left", onPeerLeft);
-      socket.off("peer-position", onPeerPosition);
       socket.off("room-locked", onRoomLocked);
       socket.off("host-changed", onHostChanged);
     };
   }, [socketRef, selfId]);
-
-  const layout = LAYOUTS[layoutId] || LAYOUTS.strip3;
 
   // ---- 4. Canvas registry from ParticipantFeed instances ----
   const registerCanvas = useCallback((id, canvasEl) => {
@@ -361,7 +367,7 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
         onCancelRetake={cancelRetake}
         onClose={closeResult}
       />
-    </div>
+</div>
   );
 }
 
