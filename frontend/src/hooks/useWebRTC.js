@@ -27,7 +27,7 @@ export function useWebRTC(socketRef, localStream) {
   const [remoteStreams, setRemoteStreams] = useState({}); // { socketId: MediaStream }
   const peersRef = useRef({}); // { socketId: RTCPeerConnection }
   const selfIdRef = useRef(null);
-  const connectingRef = useRef(new Set()); // track connection attempts
+  const connectingRef = useRef(new Set()); // track in-progress connection attempts
 
   const setSelfId = useCallback((id) => {
     selfIdRef.current = id;
@@ -57,6 +57,7 @@ export function useWebRTC(socketRef, localStream) {
       };
 
       pc.onconnectionstatechange = () => {
+        console.log(`[WebRTC] ${peerId} connection state: ${pc.connectionState}`);
         if (["disconnected", "failed", "closed"].includes(pc.connectionState)) {
           setRemoteStreams((prev) => {
             const next = { ...prev };
@@ -84,22 +85,24 @@ export function useWebRTC(socketRef, localStream) {
 
   const connectToPeer = useCallback(
     async (peerId, { isInitiator = true } = {}) => {
-      // Guard: already connected or connecting
+      // Guard: already connected
       if (peersRef.current[peerId]) {
         console.log(`[WebRTC] Already connected to ${peerId}`);
         return;
       }
+      // Guard: already connecting
       if (connectingRef.current.has(peerId)) {
         console.log(`[WebRTC] Already connecting to ${peerId}`);
         return;
       }
+      // Guard: self
       if (peerId === selfIdRef.current) {
         console.log(`[WebRTC] Skipping self-connection`);
         return;
       }
 
       // Glare prevention: deterministic tiebreaker
-      // Only the peer with the "greater" socketId initiates
+      // Only the peer with lexicographically greater socketId initiates
       if (isInitiator && selfIdRef.current && peerId < selfIdRef.current) {
         console.log(
           `[WebRTC] Tiebreaker: ${selfIdRef.current} waits for ${peerId} to initiate`
@@ -164,17 +167,14 @@ export function useWebRTC(socketRef, localStream) {
           console.error(`[WebRTC] Error handling offer from ${from}:`, err);
         }
       } else if (data.type === "answer") {
-        if (pc) {
-          // Only set answer if we're in the right state
-          if (pc.signalingState !== "stable") {
-            try {
-              await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-            } catch (err) {
-              console.error(
-                `[WebRTC] Error setting remote answer from ${from}:`,
-                err
-              );
-            }
+        if (pc && pc.signalingState !== "stable") {
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+          } catch (err) {
+            console.error(
+              `[WebRTC] Error setting remote answer from ${from}:`,
+              err
+            );
           }
         }
       } else if (data.type === "ice-candidate") {

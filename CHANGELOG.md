@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-07-12
+
+### Fixed
+- **Mesh WebRTC connection (3+ users)**: Fixed one-way connection issue where 3rd+ participant could see earlier users but earlier users couldn't see them. Root cause: only the *joiner* initiated WebRTC handshakes.
+  - Server now emits `connect-to-new-peer` event so existing users also initiate connections TO new joiners (bidirectional mesh)
+  - Client handles `connect-to-new-peer` to connect back to new peer
+  - Added glare prevention: deterministic tiebreaker (lexicographically greater socketId initiates) prevents both sides creating offers simultaneously
+  - Added connection guards to prevent duplicate connections
+  - Added ICE restart on connection failure for automatic recovery
+  - Fixed `InvalidStateError: Called in wrong state: stable` by checking `signalingState` before setting remote answer
+
+### Changed
+- `server/src/index.js` — emit `connect-to-new-peer` on join with existing peers list
+- `frontend/src/hooks/useWebRTC.js` — handle `connect-to-new-peer`, add glare tiebreaker, connection guards, ICE restart, signalingState check
+
 ## [1.1.2] - 2026-07-12
 
 ### Fixed
