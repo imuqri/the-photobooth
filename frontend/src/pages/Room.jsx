@@ -47,6 +47,7 @@ const { remoteStreams, connectToPeer } = useWebRTC(socketRef, localStream);
     requestRetake,
     confirmRetake,
     cancelRetake,
+    closeResult,
   } = useCapture({
     socketRef,
     selfId,
@@ -338,6 +339,7 @@ const { remoteStreams, connectToPeer } = useWebRTC(socketRef, localStream);
         onRequestRetake={requestRetake}
         onConfirmRetake={confirmRetake}
         onCancelRetake={cancelRetake}
+        onClose={closeResult}
       />
     </div>
   );

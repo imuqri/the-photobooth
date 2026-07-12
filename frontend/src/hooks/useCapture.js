@@ -133,6 +133,11 @@ export function useCapture({
     setShowRetakeConfirm(false);
   }, []);
 
+  const closeResult = useCallback(() => {
+    setResultImage(null);
+    setIsInitiator(false);
+  }, []);
+
   return {
     countdown,
     flashKey,
@@ -145,5 +150,6 @@ export function useCapture({
     requestRetake,
     confirmRetake,
     cancelRetake,
+    closeResult,
   };
 }

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-07-12
+
+### Fixed
+- **Close button on capture result modal**: Fixed "Close" button not working after photo capture. The `CaptureResultModal` expected an `onClose` callback but `Room.jsx` wasn't passing it. Added `closeResult` function to `useCapture` hook that clears the captured image state, and wired it through to the modal's `onClose` prop.
+
+### Changed
+- `frontend/src/hooks/useCapture.js` — added `closeResult` function to clear capture state
+- `frontend/src/pages/Room.jsx` — pass `closeResult` as `onClose` to `CaptureResultModal`
+
 ## [1.1.1] - 2026-07-10
 
 ### Fixed
