@@ -13,7 +13,7 @@ import { drawStage } from "../utils/compositor.js";
 export default function Room() {
   const { code } = useParams();
   const navigate = useNavigate();
-  const { socketRef, connected } = useSocket();
+  const { socketRef, connected, registerHandler } = useSocket();
 
   const [localStream, setLocalStream] = useState(null);
   const [mediaError, setMediaError] = useState("");
@@ -109,50 +109,39 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, localStream, code]);
 
-  // ---- 3a. Position sync (runs when socket connects, BEFORE join) ----
+  // ---- 3a. Position sync (registered via registerHandler for reconnection support) ----
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    function onPeerPosition({ socketId, position }) {
+    return registerHandler("peer-position", ({ socketId, position }) => {
       positionsRef.current.set(socketId, position);
-    }
-
-    socket.on("peer-position", onPeerPosition);
-    return () => socket.off("peer-position", onPeerPosition);
-  }, [socketRef]);
+    });
+  }, [registerHandler]);
 
   // ---- 3b. Room membership + sync events (needs selfId for host check) ----
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    function onPeerJoined({ socketId }) {
+    return registerHandler("peer-joined", ({ socketId }) => {
       setPeerIds((prev) => (prev.includes(socketId) ? prev : [...prev, socketId]));
-    }
-    function onPeerLeft({ socketId }) {
+    });
+  }, [registerHandler]);
+
+  useEffect(() => {
+    return registerHandler("peer-left", ({ socketId }) => {
       setPeerIds((prev) => prev.filter((id) => id !== socketId));
       canvasMapRef.current.delete(socketId);
       positionsRef.current.delete(socketId);
-    }
-    function onRoomLocked({ locked }) {
-      setLocked(locked);
-    }
-    function onHostChanged({ hostSocketId }) {
-      setIsHost(hostSocketId === selfId);
-    }
+    });
+  }, [registerHandler]);
 
-    socket.on("peer-joined", onPeerJoined);
-    socket.on("peer-left", onPeerLeft);
-    socket.on("room-locked", onRoomLocked);
-    socket.on("host-changed", onHostChanged);
-    return () => {
-      socket.off("peer-joined", onPeerJoined);
-      socket.off("peer-left", onPeerLeft);
-      socket.off("room-locked", onRoomLocked);
-      socket.off("host-changed", onHostChanged);
-    };
-  }, [socketRef, selfId]);
+  useEffect(() => {
+    return registerHandler("room-locked", ({ locked }) => {
+      setLocked(locked);
+    });
+  }, [registerHandler]);
+
+  useEffect(() => {
+    return registerHandler("host-changed", ({ hostSocketId }) => {
+      setIsHost(hostSocketId === selfId);
+    });
+  }, [registerHandler, selfId]);
 
   const layout = LAYOUTS[layoutId] || LAYOUTS.strip3;
 

@@ -18,11 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Error path cleanup**: Ensured `connectingRef` cleared in all catch blocks to prevent stuck connection attempts.
 - **Position sync for new joiners**: Fixed 3rd+ user seeing participants at stale/incorrect positions. Server now emits `peer-position` for all existing participants directly to the new joiner during join, so they render at correct positions immediately.
 - **Position sync race condition**: Fixed new joiners missing server-emitted positions due to listener setup timing. Client now registers `peer-position` listener in a `useEffect` with only `[socketRef]` dependency (runs on socket connect, before join), ensuring it's ready before server emits positions during join.
+- **Position persistence on refresh/rejoin**: Added `lastKnownPositions` map to room state that preserves participant positions after they leave. When a user refreshes (gets new socketId) or quickly rejoins, their previous position is restored. Server also emits these last known positions to new joiners so they see the most recent layout.
 
 ### Changed
-- `frontend/src/pages/Room.jsx` — set `selfId` before join emit, pass explicit `selfId` to `connectToPeer`
+- `frontend/src/pages/Room.jsx` — set `selfId` before join emit, pass explicit `selfId` to `connectToPeer`; register `peer-position` listener via `registerHandler` from `useSocket` (runs on socket connect, before join)
 - `frontend/src/hooks/useWebRTC.js` — polite/impolite pattern, track verification, backoff reconnection, visibility handling, jitter
 - `server/src/index.js` — emit `peer-position` for existing participants to new joiner on join
+- `server/src/rooms.js` — added `lastKnownPositions` map to room state; preserve positions on leave; restore on rejoin; emit last known positions to new joiners
 
 ## [1.1.3] - 2026-07-12
 

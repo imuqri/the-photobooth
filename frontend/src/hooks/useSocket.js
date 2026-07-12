@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 
 const SIGNALING_URL = import.meta.env.VITE_SIGNALING_URL || "http://localhost:4000";
@@ -13,12 +13,19 @@ const SIGNALING_URL = import.meta.env.VITE_SIGNALING_URL || "http://localhost:40
 export function useSocket() {
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
+  const handlersRef = useRef(new Map());
 
   useEffect(() => {
     const socket = io(SIGNALING_URL, { transports: ["websocket"] });
     socketRef.current = socket;
 
-    socket.on("connect", () => setConnected(true));
+    socket.on("connect", () => {
+      setConnected(true);
+      // Re-register all handlers on reconnect
+      handlersRef.current.forEach((handler, event) => {
+        socket.on(event, handler);
+      });
+    });
     socket.on("disconnect", () => setConnected(false));
 
     return () => {
@@ -26,5 +33,30 @@ export function useSocket() {
     };
   }, []);
 
-  return { socketRef, connected };
+  /**
+   * Register a socket event handler that persists across reconnections.
+   * Returns a cleanup function to unregister the handler.
+   *
+   * @param {string} event - Socket event name (e.g., "peer-position")
+   * @param {Function} handler - Event handler function
+   * @returns {Function} Cleanup function to unregister the handler
+   */
+  const registerHandler = useCallback((event, handler) => {
+    // Store handler for reconnection
+    handlersRef.current.set(event, handler);
+
+    // Register immediately if connected
+    const socket = socketRef.current;
+    if (socket?.connected) {
+      socket.on(event, handler);
+    }
+
+    // Return cleanup function
+    return () => {
+      handlersRef.current.delete(event);
+      socket?.off(event, handler);
+    };
+  }, []);
+
+  return { socketRef, connected, registerHandler };
 }

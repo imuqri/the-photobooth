@@ -3,6 +3,12 @@
 // Deliberately NOT a database: rooms are ephemeral, live only in process
 // memory, and are wiped on a TTL. There is nothing here to breach after
 // a session ends because there is nothing left.
+//
+// The room also keeps a `lastKnownPositions` map that preserves the
+// last known position of participants even after they leave. This allows
+// a user who refreshes (and gets a new socketId) to rejoin with their
+// previous position, and also helps new joiners see the most recent
+// positions of all current participants.
 
 const ROOM_TTL_MS = 60 * 60 * 1000; // room dies after 60 min of no activity
 const MAX_PARTICIPANTS = 6;
@@ -24,6 +30,7 @@ const rooms = new Map();
  * @property {boolean} locked
  * @property {string} layout  // 'strip3' | 'grid4'
  * @property {Map<string, Participant>} participants
+ * @property {Map<string, {x:number,y:number,scale:number}>} lastKnownPositions
  * @property {number} lastActivity
  */
 
@@ -47,6 +54,7 @@ export function createRoom(hostSocketId, layout = "strip3") {
     locked: false,
     layout,
     participants: new Map(),
+    lastKnownPositions: new Map(),
     lastActivity: Date.now(),
   };
   rooms.set(code, room);
@@ -67,10 +75,12 @@ export function joinRoom(code, socketId) {
   if (room.locked) return { error: "LOCKED" };
   if (room.participants.size >= MAX_PARTICIPANTS) return { error: "FULL" };
 
+  // Preserve last known position if this socketId was previously in the room
+  const lastPos = room.lastKnownPositions.get(socketId);
   room.participants.set(socketId, {
     socketId,
     joinedAt: Date.now(),
-    position: { x: 0.5, y: 0.5, scale: 1 },
+    position: lastPos || { x: 0.5, y: 0.5, scale: 1 },
   });
   touchRoom(room);
   return { room };
@@ -79,6 +89,11 @@ export function joinRoom(code, socketId) {
 export function leaveRoom(code, socketId) {
   const room = getRoom(code);
   if (!room) return null;
+  const participant = room.participants.get(socketId);
+  if (participant) {
+    // Preserve the position for potential quick rejoin (e.g., page refresh)
+    room.lastKnownPositions.set(socketId, participant.position);
+  }
   room.participants.delete(socketId);
   touchRoom(room);
 
@@ -108,6 +123,7 @@ export function updatePosition(code, socketId, position) {
   const p = room.participants.get(socketId);
   if (!p) return null;
   p.position = position;
+  room.lastKnownPositions.set(socketId, position);
   touchRoom(room);
   return room;
 }
