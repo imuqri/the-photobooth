@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2026-07-12
+
+### Fixed
+- **Mesh WebRTC reliability (6 users)**: Fixed connection failures at 3+ users with comprehensive mesh hardening.
+  - **Tiebreaker timing**: Fixed `selfIdRef` not being set when join callback fires `connectToPeer` calls. Now sets `selfId` before join emit and passes explicit `selfId` to all `connectToPeer` calls.
+  - **Glare prevention**: Replaced manual lexicographic tiebreaker with standard WebRTC polite/impolite pattern. Impolite side (lexicographically smaller socketId) initiates; polite side waits for `onnegotiationneeded` and rolls back on glare (`InvalidStateError`).
+  - **Track verification**: Added 10-second timeout after connection — if no `ontrack` fires, triggers reconnection. Prevents "connected but no video" state.
+  - **Exponential backoff reconnection**: On ICE failure/disconnect without track, retries with 1s → 2s → 4s → 8s → max 30s backoff.
+  - **Tab visibility recovery**: On tab wake, restarts ICE on all stale connections.
+  - **Simultaneous join protection**: Added random jitter (0-100ms) before initiating connections to prevent exact simultaneous initiation.
+  - **Error path cleanup**: Ensured `connectingRef` cleared in all catch blocks to prevent stuck connection attempts.
+
+### Changed
+- `frontend/src/pages/Room.jsx` — set `selfId` before join emit, pass explicit `selfId` to `connectToPeer`
+- `frontend/src/hooks/useWebRTC.js` — polite/impolite pattern, track verification, backoff reconnection, visibility handling, jitter
+
 ## [1.1.3] - 2026-07-12
 
 ### Fixed
