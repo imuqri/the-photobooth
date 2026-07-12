@@ -154,6 +154,8 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
     };
   }, [socketRef, selfId]);
 
+  const layout = LAYOUTS[layoutId] || LAYOUTS.strip3;
+
   // ---- 4. Canvas registry from ParticipantFeed instances ----
   const registerCanvas = useCallback((id, canvasEl) => {
     canvasMapRef.current.set(id, canvasEl);
