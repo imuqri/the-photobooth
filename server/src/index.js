@@ -29,6 +29,35 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, uptime: process.uptime() });
 });
 
+// Root endpoint — show server status
+app.get("/", (_req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Photobooth Signaling Server</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+    .status { padding: 20px; border-radius: 8px; background: #dcfce7; color: #166534; }
+    .info { margin-top: 20px; padding: 15px; background: #f3f4f6; border-radius: 8px; }
+    h1 { color: #1f2937; }
+    code { background: #e5e7eb; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>🎭 Photobooth Signaling Server</h1>
+  <div class="status">✅ Server is running</div>
+  <div class="info">
+    <p><strong>WebSocket endpoint:</strong> <code>ws://localhost:${PORT}/socket.io/</code></p>
+    <p><strong>Health check:</strong> <code>/health</code></p>
+    <p><strong>Allowed origins:</strong> ${ALLOWED_ORIGINS.join(", ")}</p>
+    <p><strong>Uptime:</strong> ${Math.floor(process.uptime())}s</p>
+  </div>
+</body>
+</html>
+  `);
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: ALLOWED_ORIGINS, methods: ["GET", "POST"] },
