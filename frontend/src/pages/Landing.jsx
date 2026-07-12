@@ -39,13 +39,6 @@ export default function Landing() {
     navigate(`/room/${code}`);
   }
 
-  function joinSession(e) {
-    e.preventDefault();
-    const code = joinCode.trim().toUpperCase();
-    if (code.length < 4) return setError("Enter the code your host shared with you.");
-    navigate(`/room/${code}`);
-  }
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
       <p className="font-mono text-xs uppercase tracking-[0.3em] text-booth-muted mb-3">
@@ -86,7 +79,7 @@ export default function Landing() {
           </div>
           <button
             onClick={createSession}
-            disabled={!connected || busy}
+            disabled={busy}
             className="px-8 py-3 rounded-xl bg-booth-shutter text-booth-paper font-display text-xl tracking-wide disabled:opacity-50"
           >
             {busy ? "Creating…" : "Create session"}
