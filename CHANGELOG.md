@@ -15,10 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added connection guards to prevent duplicate connections
   - Added ICE restart on connection failure for automatic recovery
   - Fixed `InvalidStateError: Called in wrong state: stable` by checking `signalingState` before setting remote answer
+- **WebRTC selfId not propagated**: Fixed `selfIdRef.current` staying `null` in `useWebRTC` hook because `Room.jsx` wasn't calling the hook's `setSelfId`. This caused glare prevention and self-checks to fail.
+  - Added `setSelfId` to hook return and called it from `Room.jsx` after join
 
 ### Changed
-- `server/src/index.js` — emit `connect-to-new-peer` on join with existing peers list
+- `server/src/index.js` — emit `connect-to-new-peer` on join with existing peers list; add root `/` endpoint showing server status
 - `frontend/src/hooks/useWebRTC.js` — handle `connect-to-new-peer`, add glare tiebreaker, connection guards, ICE restart, signalingState check
+- `frontend/src/pages/Room.jsx` — call `setWebRTCSelfId(res.selfId)` to propagate selfId to WebRTC hook
 
 ## [1.1.2] - 2026-07-12
 

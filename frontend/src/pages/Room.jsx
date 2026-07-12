@@ -32,7 +32,7 @@ export default function Room() {
   const lastEmitRef = useRef(0);
   const rafRef = useRef(null);
 
-const { remoteStreams, connectToPeer } = useWebRTC(socketRef, localStream);
+const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(socketRef, localStream);
 
   // ---- Capture hook ----
   const {
@@ -88,6 +88,7 @@ const { remoteStreams, connectToPeer } = useWebRTC(socketRef, localStream);
         return;
       }
       setSelfId(res.selfId);
+      setWebRTCSelfId(res.selfId);
       setLayoutId(res.room.layout);
       setLocked(res.room.locked);
       setIsHost(res.room.hostSocketId === res.selfId);
