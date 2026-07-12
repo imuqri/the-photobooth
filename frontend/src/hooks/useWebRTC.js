@@ -180,16 +180,8 @@ export function useWebRTC(socketRef, localStream) {
 
       try {
         const pc = createPeerConnection(peerId);
-
-        // Explicitly create and send offer for initiator
-        if (isInitiator) {
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          socketRef.current?.emit("signal", {
-            to: peerId,
-            data: { type: pc.localDescription.type, sdp: pc.localDescription.sdp },
-          });
-        }
+        // onnegotiationneeded will fire automatically when tracks are added in createPeerConnection
+        // and will create/send the offer for the initiator
       } catch (err) {
         console.error(`[WebRTC] connectToPeer(${peerId}) failed:`, err);
         connectingRef.current.delete(peerId);

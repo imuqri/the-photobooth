@@ -88,7 +88,7 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
 
     // Set selfId BEFORE join emit so tiebreaker works immediately
     let myId = null;
-    socket.emit("join-room", { code, userId }, (res) => {
+socket.emit("join-room", { code, userId }, (res) => {
       if (res?.error) {
         setJoinError(readableJoinError(res.error));
         return;
@@ -106,6 +106,15 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
         positionsRef.current.set(p.socketId, p.position);
         connectToPeer(p.socketId, { selfId: myId, isInitiator: true });
       }
+
+      // Request fresh positions from server as backup
+      socket.emit("request-positions", null, ({ positions }) => {
+        if (positions) {
+          for (const [pid, pos] of Object.entries(positions)) {
+            positionsRef.current.set(pid, pos);
+          }
+        }
+      });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, localStream, code]);

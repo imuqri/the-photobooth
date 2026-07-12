@@ -161,6 +161,21 @@ io.on("connection", (socket) => {
     socket.to(code).emit("peer-position", { socketId: socket.id, position });
   });
 
+  // ---- Explicit position sync request (for debugging/recovery) ----
+  socket.on("request-positions", (_, callback) => {
+    const code = socket.data.roomCode;
+    if (!code) return callback?.({ error: "NOT_IN_ROOM" });
+    const room = getRoom(code);
+    if (!room) return callback?.({ error: "ROOM_NOT_FOUND" });
+    const positions = {};
+    for (const [pid, participant] of room.participants) {
+      if (pid !== socket.id) {
+        positions[pid] = participant.position;
+      }
+    }
+    callback?.({ positions });
+  });
+
   // ---- Capture start broadcast ----
   // Initiator sends layout + shotCount; server broadcasts to all in room
   // including initiator so everyone runs identical local capture sequence.
