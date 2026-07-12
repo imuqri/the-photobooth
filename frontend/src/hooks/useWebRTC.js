@@ -105,13 +105,15 @@ export function useWebRTC(socketRef, localStream) {
         }
       };
 
-      // Polite/impolite: handle negotiation automatically
+      // Polite/impolite: handle negotiation for re-negotiation (ICE restart, etc.)
       pc.onnegotiationneeded = async () => {
+        // Only handle re-negotiation, not initial offer
+        if (pc.signalingState !== "stable") return;
         try {
           await pc.setLocalDescription(await pc.createOffer());
           socketRef.current?.emit("signal", {
             to: peerId,
-            data: pc.localDescription,
+            data: { type: pc.localDescription.type, sdp: pc.localDescription.sdp },
           });
         } catch (err) {
           // Glare: polite side rolls back
@@ -178,7 +180,16 @@ export function useWebRTC(socketRef, localStream) {
 
       try {
         const pc = createPeerConnection(peerId);
-        // Offer will be sent via onnegotiationneeded automatically
+
+        // Explicitly create and send offer for initiator
+        if (isInitiator) {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          socketRef.current?.emit("signal", {
+            to: peerId,
+            data: { type: pc.localDescription.type, sdp: pc.localDescription.sdp },
+          });
+        }
       } catch (err) {
         console.error(`[WebRTC] connectToPeer(${peerId}) failed:`, err);
         connectingRef.current.delete(peerId);
@@ -217,12 +228,13 @@ export function useWebRTC(socketRef, localStream) {
       if (data.type === "offer") {
         if (!pc) pc = createPeerConnection(from);
         try {
-          await pc.setRemoteDescription(new RTCSessionDescription(data));
+          const offer = { type: data.type, sdp: data.sdp };
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit("signal", {
             to: from,
-            data: { type: "answer", sdp: answer },
+            data: { type: "answer", sdp: answer.sdp },
           });
         } catch (err) {
           console.error(`[WebRTC] Error handling offer from ${from}:`, err);
@@ -230,13 +242,14 @@ export function useWebRTC(socketRef, localStream) {
       } else if (data.type === "answer") {
         if (pc && pc.signalingState !== "stable") {
           try {
-            await pc.setRemoteDescription(new RTCSessionDescription(data));
+            const answer = { type: data.type, sdp: data.sdp };
+            await pc.setRemoteDescription(new RTCSessionDescription(answer));
           } catch (err) {
             console.error(`[WebRTC] Error setting remote answer from ${from}:`, err);
           }
         }
       } else if (data.type === "ice-candidate") {
-        if (pc) {
+        if (pc && data.candidate) {
           try {
             await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
           } catch {
