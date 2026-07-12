@@ -85,6 +85,8 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
     const socket = socketRef.current;
     if (!socket || !connected || !localStream) return;
 
+    // Set selfId BEFORE join emit so tiebreaker works immediately
+    let myId = null;
     socket.emit("join-room", { code }, (res) => {
       if (res?.error) {
         setJoinError(readableJoinError(res.error));
@@ -96,12 +98,12 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
       setLocked(res.room.locked);
       setIsHost(res.room.hostSocketId === res.selfId);
 
-      const myId = res.selfId;
+      myId = res.selfId;
       const others = res.room.participants.filter((p) => p.socketId !== res.selfId);
       setPeerIds(others.map((p) => p.socketId));
       for (const p of others) {
         positionsRef.current.set(p.socketId, p.position);
-        connectToPeer(p.socketId, { selfId: myId });
+        connectToPeer(p.socketId, { selfId: myId, isInitiator: true });
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
