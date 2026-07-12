@@ -45,7 +45,7 @@ function generateCode() {
   return code;
 }
 
-export function createRoom(hostSocketId, layout = "strip3") {
+export function createRoom(hostSocketId, layout = "strip3", userId) {
   const code = generateCode();
   /** @type {Room} */
   const room = {
@@ -57,6 +57,10 @@ export function createRoom(hostSocketId, layout = "strip3") {
     lastKnownPositions: new Map(),
     lastActivity: Date.now(),
   };
+  // If userId provided, pre-seed their position
+  if (userId) {
+    room.lastKnownPositions.set(userId, { x: 0.5, y: 0.5, scale: 1 });
+  }
   rooms.set(code, room);
   return room;
 }
@@ -69,16 +73,17 @@ export function touchRoom(room) {
   room.lastActivity = Date.now();
 }
 
-export function joinRoom(code, socketId) {
+export function joinRoom(code, socketId, userId) {
   const room = getRoom(code);
   if (!room) return { error: "NOT_FOUND" };
   if (room.locked) return { error: "LOCKED" };
   if (room.participants.size >= MAX_PARTICIPANTS) return { error: "FULL" };
 
-  // Preserve last known position if this socketId was previously in the room
-  const lastPos = room.lastKnownPositions.get(socketId);
+  // Preserve last known position if this userId was previously in the room
+  const lastPos = userId ? room.lastKnownPositions.get(userId) : null;
   room.participants.set(socketId, {
     socketId,
+    userId,
     joinedAt: Date.now(),
     position: lastPos || { x: 0.5, y: 0.5, scale: 1 },
   });
@@ -90,9 +95,9 @@ export function leaveRoom(code, socketId) {
   const room = getRoom(code);
   if (!room) return null;
   const participant = room.participants.get(socketId);
-  if (participant) {
+  if (participant?.userId) {
     // Preserve the position for potential quick rejoin (e.g., page refresh)
-    room.lastKnownPositions.set(socketId, participant.position);
+    room.lastKnownPositions.set(participant.userId, participant.position);
   }
   room.participants.delete(socketId);
   touchRoom(room);
@@ -123,7 +128,9 @@ export function updatePosition(code, socketId, position) {
   const p = room.participants.get(socketId);
   if (!p) return null;
   p.position = position;
-  room.lastKnownPositions.set(socketId, position);
+  if (p.userId) {
+    room.lastKnownPositions.set(p.userId, position);
+  }
   touchRoom(room);
   return room;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useSocket } from "../hooks/useSocket.js";
+import { useSocket, useUserId } from "../hooks/useSocket.js";
 import { useWebRTC } from "../hooks/useWebRTC.js";
 import { useCapture } from "../hooks/useCapture.js";
 import ParticipantFeed from "../components/ParticipantFeed.jsx";
@@ -14,6 +14,7 @@ export default function Room() {
   const { code } = useParams();
   const navigate = useNavigate();
   const { socketRef, connected, registerHandler } = useSocket();
+  const userId = useUserId();
 
   const [localStream, setLocalStream] = useState(null);
   const [mediaError, setMediaError] = useState("");
@@ -87,7 +88,7 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
 
     // Set selfId BEFORE join emit so tiebreaker works immediately
     let myId = null;
-    socket.emit("join-room", { code }, (res) => {
+    socket.emit("join-room", { code, userId }, (res) => {
       if (res?.error) {
         setJoinError(readableJoinError(res.error));
         return;

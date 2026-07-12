@@ -82,7 +82,8 @@ io.on("connection", (socket) => {
       return callback?.({ error: "RATE_LIMITED" });
     }
     const layout = payload?.layout === "grid4" ? "grid4" : "strip3";
-    const room = createRoom(socket.id, layout);
+    const userId = payload?.userId;
+    const room = createRoom(socket.id, layout, userId);
     socket.join(room.code);
     callback?.({ room: roomSummary(room) });
   });
@@ -93,7 +94,8 @@ io.on("connection", (socket) => {
       return callback?.({ error: "RATE_LIMITED" });
     }
     const code = String(payload?.code || "").toUpperCase();
-    const result = joinRoom(code, socket.id);
+    const userId = payload?.userId;
+    const result = joinRoom(code, socket.id, userId);
     if (result.error) return callback?.({ error: result.error });
 
     socket.join(code);

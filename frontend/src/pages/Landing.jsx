@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useUserId } from "../hooks/useSocket.js";
 import LayoutPicker from "../components/LayoutPicker.jsx";
 
 export default function Landing() {
   const navigate = useNavigate();
+  const userId = useUserId();
   const [mode, setMode] = useState("choose"); // 'choose' | 'create' | 'join'
   const [layout, setLayout] = useState("strip3");
   const [joinCode, setJoinCode] = useState("");
@@ -18,7 +20,7 @@ export default function Landing() {
     fetch("/api/create-room", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ layout }),
+      body: JSON.stringify({ layout, userId }),
     })
       .then((res) => res.json())
       .then((res) => {

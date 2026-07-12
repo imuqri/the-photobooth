@@ -2,6 +2,20 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 
 const SIGNALING_URL = import.meta.env.VITE_SIGNALING_URL || "http://localhost:4000";
+const USER_ID_KEY = "photobooth_user_id";
+
+function generateUserId() {
+  return crypto.randomUUID();
+}
+
+function getOrCreateUserId() {
+  let userId = localStorage.getItem(USER_ID_KEY);
+  if (!userId) {
+    userId = generateUserId();
+    localStorage.setItem(USER_ID_KEY, userId);
+  }
+  return userId;
+}
 
 /**
  * Owns one socket.io connection for the lifetime of the component that
@@ -59,4 +73,9 @@ export function useSocket() {
   }, []);
 
   return { socketRef, connected, registerHandler };
+}
+
+export function useUserId() {
+  const userId = getOrCreateUserId();
+  return userId;
 }
