@@ -118,18 +118,21 @@ io.on("connection", (socket) => {
       }
     }
 
-    // Include current positions of all existing participants in the callback response
+// Include current positions of all existing participants in the callback response
     // so the new user can render them at correct positions immediately
     const room = getRoom(code);
+    console.log("[JOIN] Room participants before sending positions:", room ? Array.from(room.participants.entries()).map(([pid, p]) => ({ pid, position: p.position, userId: p.userId })) : 'NO ROOM');
     const positions = {};
     if (room) {
       for (const [pid, participant] of room.participants) {
         if (pid !== socket.id) {
+          console.log("[JOIN] Adding position for", pid, ":", participant.position);
           positions[pid] = participant.position;
         }
       }
     }
-    console.log("[JOIN] Sending positions to new user:", socket.id, "positions:", positions);
+
+    console.log("[JOIN] Final positions object:", positions);
     callback?.({ room: roomSummary(result.room), selfId: socket.id, positions });
   });
 

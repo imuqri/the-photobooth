@@ -87,12 +87,12 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
     if (!socket || !connected || !localStream) return;
 
 // Set selfId BEFORE join emit so tiebreaker works immediately
-    let myId = null;
     socket.emit("join-room", { code, userId }, (res) => {
       if (res?.error) {
         setJoinError(readableJoinError(res.error));
         return;
       }
+      console.log("[JOIN] Callback received:", { selfId: res.selfId, room: res.room, positions: res.positions });
       setSelfId(res.selfId);
       setWebRTCSelfId(res.selfId);
       setLayoutId(res.room.layout);
@@ -105,6 +105,7 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
       
       // Apply positions from join callback (includes saved positions from lastKnownPositions)
       for (const p of others) {
+        console.log("[JOIN] Applying position from participant:", p.socketId, p.position);
         positionsRef.current.set(p.socketId, p.position);
         connectToPeer(p.socketId, { selfId: myId, isInitiator: true });
       }
@@ -112,6 +113,7 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
       // Also apply any additional positions from the callback (backup from server)
       if (res.positions) {
         for (const [pid, pos] of Object.entries(res.positions)) {
+          console.log("[JOIN] Applying position from res.positions:", pid, pos);
           positionsRef.current.set(pid, pos);
         }
       }
