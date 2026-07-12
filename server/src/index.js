@@ -64,6 +64,19 @@ io.on("connection", (socket) => {
     // a WebRTC handshake with it.
     socket.to(code).emit("peer-joined", { socketId: socket.id });
 
+    // Tell existing participants to ALSO connect TO the new peer
+    // (bidirectional mesh: joiner connects to existing, existing connects to joiner)
+    const roomSockets = io.sockets.adapter.rooms.get(code);
+    if (roomSockets) {
+      const existingPeers = Array.from(roomSockets).filter((id) => id !== socket.id);
+      if (existingPeers.length > 0) {
+        socket.to(code).emit("connect-to-new-peer", {
+          newPeerId: socket.id,
+          existingPeers,
+        });
+      }
+    }
+
     callback?.({ room: roomSummary(result.room), selfId: socket.id });
   });
 

@@ -26,6 +26,12 @@ function iceServers() {
 export function useWebRTC(socketRef, localStream) {
   const [remoteStreams, setRemoteStreams] = useState({}); // { socketId: MediaStream }
   const peersRef = useRef({}); // { socketId: RTCPeerConnection }
+  const selfIdRef = useRef(null);
+  const connectingRef = useRef(new Set()); // track connection attempts
+
+  const setSelfId = useCallback((id) => {
+    selfIdRef.current = id;
+  }, []);
 
   const createPeerConnection = useCallback(
     (peerId) => {
@@ -57,6 +63,16 @@ export function useWebRTC(socketRef, localStream) {
             delete next[peerId];
             return next;
           });
+          peersRef.current[peerId]?.close();
+          delete peersRef.current[peerId];
+          connectingRef.current.delete(peerId);
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === "failed") {
+          console.log(`[WebRTC] ICE failed for ${peerId}, attempting restart`);
+          pc.restartIce();
         }
       };
 
@@ -67,14 +83,50 @@ export function useWebRTC(socketRef, localStream) {
   );
 
   const connectToPeer = useCallback(
-    async (peerId) => {
-      const pc = createPeerConnection(peerId);
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      socketRef.current?.emit("signal", {
-        to: peerId,
-        data: { type: "offer", sdp: offer },
-      });
+    async (peerId, { isInitiator = true } = {}) => {
+      // Guard: already connected or connecting
+      if (peersRef.current[peerId]) {
+        console.log(`[WebRTC] Already connected to ${peerId}`);
+        return;
+      }
+      if (connectingRef.current.has(peerId)) {
+        console.log(`[WebRTC] Already connecting to ${peerId}`);
+        return;
+      }
+      if (peerId === selfIdRef.current) {
+        console.log(`[WebRTC] Skipping self-connection`);
+        return;
+      }
+
+      // Glare prevention: deterministic tiebreaker
+      // Only the peer with the "greater" socketId initiates
+      if (isInitiator && selfIdRef.current && peerId < selfIdRef.current) {
+        console.log(
+          `[WebRTC] Tiebreaker: ${selfIdRef.current} waits for ${peerId} to initiate`
+        );
+        return;
+      }
+
+      connectingRef.current.add(peerId);
+
+      try {
+        const pc = createPeerConnection(peerId);
+
+        if (isInitiator) {
+          const offer = await pc.createOffer({ iceRestart: true });
+          await pc.setLocalDescription(offer);
+          socketRef.current?.emit("signal", {
+            to: peerId,
+            data: { type: "offer", sdp: offer },
+          });
+        }
+        // If not initiator, wait for offer from other side
+      } catch (err) {
+        console.error(`[WebRTC] connectToPeer(${peerId}) failed:`, err);
+        connectingRef.current.delete(peerId);
+        peersRef.current[peerId]?.close();
+        delete peersRef.current[peerId];
+      }
     },
     [createPeerConnection, socketRef]
   );
@@ -82,6 +134,7 @@ export function useWebRTC(socketRef, localStream) {
   const closePeer = useCallback((peerId) => {
     peersRef.current[peerId]?.close();
     delete peersRef.current[peerId];
+    connectingRef.current.delete(peerId);
     setRemoteStreams((prev) => {
       const next = { ...prev };
       delete next[peerId];
@@ -89,6 +142,7 @@ export function useWebRTC(socketRef, localStream) {
     });
   }, []);
 
+  // Handle incoming signals (offer/answer/ice)
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -98,18 +152,37 @@ export function useWebRTC(socketRef, localStream) {
 
       if (data.type === "offer") {
         if (!pc) pc = createPeerConnection(from);
-        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit("signal", { to: from, data: { type: "answer", sdp: answer } });
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          socket.emit("signal", {
+            to: from,
+            data: { type: "answer", sdp: answer },
+          });
+        } catch (err) {
+          console.error(`[WebRTC] Error handling offer from ${from}:`, err);
+        }
       } else if (data.type === "answer") {
-        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        if (pc) {
+          // Only set answer if we're in the right state
+          if (pc.signalingState !== "stable") {
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            } catch (err) {
+              console.error(
+                `[WebRTC] Error setting remote answer from ${from}:`,
+                err
+              );
+            }
+          }
+        }
       } else if (data.type === "ice-candidate") {
         if (pc) {
           try {
             await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
           } catch {
-            // benign if it arrives before remote description is set in rare races
+            // Benign if it arrives before remote description is set
           }
         }
       }
@@ -119,24 +192,40 @@ export function useWebRTC(socketRef, localStream) {
       closePeer(socketId);
     }
 
+    function handleConnectToNewPeer({ newPeerId, existingPeers }) {
+      // New peer joined - we (existing user) must connect to them
+      if (newPeerId && newPeerId !== selfIdRef.current) {
+        connectToPeer(newPeerId, { isInitiator: true });
+      }
+      // Reconcile: ensure we're connected to all existing peers too
+      if (Array.isArray(existingPeers)) {
+        for (const peerId of existingPeers) {
+          if (peerId !== selfIdRef.current && !peersRef.current[peerId]) {
+            connectToPeer(peerId, { isInitiator: true });
+          }
+        }
+      }
+    }
+
     socket.on("signal", handleSignal);
     socket.on("peer-left", handlePeerLeft);
+    socket.on("connect-to-new-peer", handleConnectToNewPeer);
 
     return () => {
       socket.off("signal", handleSignal);
       socket.off("peer-left", handlePeerLeft);
+      socket.off("connect-to-new-peer", handleConnectToNewPeer);
     };
-  }, [socketRef, createPeerConnection, closePeer]);
+  }, [socketRef, createPeerConnection, closePeer, connectToPeer]);
 
-  // Clean up all connections on unmount — this is also naturally what
-  // happens when the tab closes, which is why camera permission doesn't
-  // "leak" across sessions.
+  // Clean up all connections on unmount
   useEffect(() => {
     return () => {
       for (const pc of Object.values(peersRef.current)) pc.close();
       peersRef.current = {};
+      connectingRef.current.clear();
     };
   }, []);
 
-  return { remoteStreams, connectToPeer, closePeer };
+  return { remoteStreams, connectToPeer, closePeer, setSelfId };
 }
