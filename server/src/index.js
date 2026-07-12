@@ -106,6 +106,20 @@ io.on("connection", (socket) => {
       }
     }
 
+    // Send current positions of all existing participants to the new user
+    // so they render at correct positions immediately
+    const room = getRoom(code);
+    if (room) {
+      for (const [pid, participant] of room.participants) {
+        if (pid !== socket.id) {
+          socket.emit("peer-position", {
+            socketId: pid,
+            position: participant.position,
+          });
+        }
+      }
+    }
+
     callback?.({ room: roomSummary(result.room), selfId: socket.id });
   });
 

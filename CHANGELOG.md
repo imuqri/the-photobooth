@@ -16,10 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Tab visibility recovery**: On tab wake, restarts ICE on all stale connections.
   - **Simultaneous join protection**: Added random jitter (0-100ms) before initiating connections to prevent exact simultaneous initiation.
   - **Error path cleanup**: Ensured `connectingRef` cleared in all catch blocks to prevent stuck connection attempts.
+- **Position sync for new joiners**: Fixed 3rd+ user seeing participants at stale/incorrect positions. Server now emits `peer-position` for all existing participants directly to the new joiner during join, so they render at correct positions immediately.
 
 ### Changed
 - `frontend/src/pages/Room.jsx` — set `selfId` before join emit, pass explicit `selfId` to `connectToPeer`
 - `frontend/src/hooks/useWebRTC.js` — polite/impolite pattern, track verification, backoff reconnection, visibility handling, jitter
+- `server/src/index.js` — emit `peer-position` for existing participants to new joiner on join
 
 ## [1.1.3] - 2026-07-12
 
