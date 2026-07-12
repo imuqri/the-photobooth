@@ -34,6 +34,9 @@ export default function Room() {
 
 const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(socketRef, localStream);
 
+  // ---- Stage size tracking ----
+  const [stageSize, setStageSize] = useState({ width: 720, height: 720 });
+
   // ---- Capture hook ----
   const {
     countdown,
@@ -93,11 +96,12 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
       setLocked(res.room.locked);
       setIsHost(res.room.hostSocketId === res.selfId);
 
+      const myId = res.selfId;
       const others = res.room.participants.filter((p) => p.socketId !== res.selfId);
       setPeerIds(others.map((p) => p.socketId));
       for (const p of others) {
         positionsRef.current.set(p.socketId, p.position);
-        connectToPeer(p.socketId);
+        connectToPeer(p.socketId, { selfId: myId });
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,12 +160,25 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
   }, []);
 
   // ---- 5. Live stage render loop ----
+  // ResizeObserver to track actual canvas size
+  useEffect(() => {
+    const canvas = stageCanvasRef.current;
+    if (!canvas) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setStageSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+      }
+    });
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, []);
+
   useEffect(() => {
     const canvas = stageCanvasRef.current;
     if (!canvas || !selfId) return;
     const ctx = canvas.getContext("2d");
-    const width = 720;
-    const height = Math.round(width / layout.slotAspect);
+    const width = stageSize.width;
+    const height = stageSize.height;
     canvas.width = width;
     canvas.height = height;
 
@@ -175,7 +192,7 @@ const { remoteStreams, connectToPeer, setSelfId: setWebRTCSelfId } = useWebRTC(s
     }
     tick();
     return () => cancelAnimationFrame(rafRef.current);
-  }, [selfId, layout.slotAspect]);
+  }, [selfId, layout.slotAspect, stageSize]);
 
   // ---- 6. Drag-to-position (only your own tile) ----
   function selfBounds() {

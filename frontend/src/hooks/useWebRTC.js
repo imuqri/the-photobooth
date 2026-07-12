@@ -84,7 +84,7 @@ export function useWebRTC(socketRef, localStream) {
   );
 
   const connectToPeer = useCallback(
-    async (peerId, { isInitiator = true } = {}) => {
+    async (peerId, { isInitiator = true, selfId } = {}) => {
       // Guard: already connected
       if (peersRef.current[peerId]) {
         console.log(`[WebRTC] Already connected to ${peerId}`);
@@ -96,16 +96,17 @@ export function useWebRTC(socketRef, localStream) {
         return;
       }
       // Guard: self
-      if (peerId === selfIdRef.current) {
+      const myId = selfId ?? selfIdRef.current;
+      if (peerId === myId) {
         console.log(`[WebRTC] Skipping self-connection`);
         return;
       }
 
       // Glare prevention: deterministic tiebreaker
       // Only the peer with lexicographically greater socketId initiates
-      if (isInitiator && selfIdRef.current && peerId < selfIdRef.current) {
+      if (isInitiator && myId && peerId < myId) {
         console.log(
-          `[WebRTC] Tiebreaker: ${selfIdRef.current} waits for ${peerId} to initiate`
+          `[WebRTC] Tiebreaker: ${myId} waits for ${peerId} to initiate`
         );
         return;
       }
