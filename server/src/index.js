@@ -129,7 +129,7 @@ io.on("connection", (socket) => {
         }
       }
     }
-
+    console.log("[JOIN] Sending positions to new user:", socket.id, "positions:", positions);
     callback?.({ room: roomSummary(result.room), selfId: socket.id, positions });
   });
 

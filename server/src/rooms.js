@@ -81,6 +81,7 @@ export function joinRoom(code, socketId, userId) {
 
   // Preserve last known position if this userId was previously in the room
   const lastPos = userId ? room.lastKnownPositions.get(userId) : null;
+  console.log("[JOIN] joinRoom:", { code, socketId, userId, lastPos, hasLastKnown: !!lastPos, lastKnownKeys: Array.from(room.lastKnownPositions.keys()) });
   room.participants.set(socketId, {
     socketId,
     userId,
@@ -97,7 +98,10 @@ export function leaveRoom(code, socketId) {
   const participant = room.participants.get(socketId);
   if (participant?.userId) {
     // Preserve the position for potential quick rejoin (e.g., page refresh)
+    console.log("[LEAVE] Saving position for userId:", participant.userId, "position:", participant.position);
     room.lastKnownPositions.set(participant.userId, participant.position);
+  } else {
+    console.log("[LEAVE] No participant or userId found for socketId:", socketId);
   }
   room.participants.delete(socketId);
   touchRoom(room);
@@ -129,6 +133,7 @@ export function updatePosition(code, socketId, position) {
   if (!p) return null;
   p.position = position;
   if (p.userId) {
+    console.log("[UPDATE_POS] Saving position for userId:", p.userId, "position:", position);
     room.lastKnownPositions.set(p.userId, position);
   }
   touchRoom(room);
