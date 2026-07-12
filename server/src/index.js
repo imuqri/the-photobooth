@@ -60,6 +60,9 @@ app.get("/", (_req, res) => {
 
 // Create room via REST (used by Landing page to avoid socket issues during navigation)
 app.post("/api/create-room", express.json(), (req, res) => {
+  if (!allow(`create:${req.ip || "unknown"}`, 10, 60_000)) {
+    return res.status(429).json({ error: "RATE_LIMITED" });
+  }
   const layout = req.body?.layout === "grid4" ? "grid4" : "strip3";
   const room = createRoom(req.ip || "unknown", layout);
   res.json({ room: roomSummary(room) });
